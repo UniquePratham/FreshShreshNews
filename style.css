@@ -1,0 +1,77 @@
+.hover:hover {
+  color: rgb(230, 159, 78) !important;
+  text-shadow: 2px 1px 3px rgba(0, 0, 0, 0.6);
+  cursor: pointer;
+  font-weight: bolder;
+}
+body {
+  background: linear-gradient(
+    rgba(238, 120, 120, 0.6),
+    rgba(247, 143, 57, 0.6)
+  );
+}
+.heading:hover {
+  text-shadow: 0 0 10px #fff, 0 0 20px #fff, 0 0 40px #fff !important;
+  color: #fff !important;
+}
+.heading {
+  /* text-shadow: 0 0 10px #fff3f3, 0 0 20px #888080, 0 0 40px rgb(116, 109, 109) !important; */
+  text-shadow: 2px 1px 3px black;
+  color: #fff !important;
+  cursor: pointer;
+}
+.navTitle {
+  text-shadow: 2px 1px 3px white;
+  color: yellow;
+}
+.navTitle:hover {
+  text-shadow: 2px 1px 3px white;
+  color: yellow;
+  font-weight: 600;
+}
+.active {
+  text-shadow: 4px 3px 5px black;
+  font-weight: 900;
+}
+.text-white {
+  color: white !important;
+  font-weight: 500;
+}
+.TitleDropdown {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.dropdown-item {
+  cursor: pointer;
+}
+.btn-group {
+  width: 15rem;
+}
+
+.choosingBox {
+  display: flex;
+  flex-wrap: wrap;
+  flex-direction: row;
+  width: 40rem;
+}
+
+#accordionNews {
+  width: 60vw;
+}
+
+.magGlass {
+  position: absolute;
+  right: 7rem;
+  top: 1.3rem;
+  color: red;
+}
+.searchButton {
+  color: black;
+  text-shadow: 3px 2px 4px wheat;
+  font-weight: bold;
+  background-color: orange;
+  border: 1px solid orange;
+  box-shadow: 2px 2px 2px 2px gray;
+  border-radius: 0.4rem;
+}
