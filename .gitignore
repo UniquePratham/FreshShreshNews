@@ -67,3 +67,6 @@ node_modules/
 # Added by repo hygiene pass
 .env.local
 __pycache__/
+
+# Vercel local state (contains project tokens)
+.vercel/
