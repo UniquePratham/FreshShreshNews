@@ -1,6 +1,6 @@
 console.log("This is a News Website Project / app.js");
 // Initialize the G News api parameters
-const apiKey = "f5b874a8cc8c944a5ef4fcf58b8a59b9";
+const apiKey = "YOUR_NEWSAPI_KEY";
 let apiCountry = "in";
 let apiLanguage = "en";
 let apiCategory = "general";

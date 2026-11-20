@@ -1,5 +1,5 @@
 // Initialize the News api parameters
-const apiKey = "5c919137e21e4c789372f47fd7157c4e";
+const apiKey = "YOUR_NEWSAPI_KEY";
 let apiCountry = "in";
 let apiUrl = `https://newsapi.org/v2/top-headlines?country=${apiCountry}&apiKey=${apiKey}`;
 let apiSource = "google-news";
