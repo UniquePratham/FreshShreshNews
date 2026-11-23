@@ -70,3 +70,5 @@ __pycache__/
 
 # Vercel local state (contains project tokens)
 .vercel/
+
+.vercel

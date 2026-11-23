@@ -1,338 +1,241 @@
-console.log("This is a News Website Project / app.js");
-// Initialize the G News api parameters
-const apiKey = "YOUR_NEWSAPI_KEY";
-let apiCountry = "in";
-let apiLanguage = "en";
-let apiCategory = "general";
-let apiQuery = "";
-const now = new Date();
-const formattedDateTime = now
-  .toISOString()
-  .replace(" ", "T")
-  .replace(".000Z", "Z");
-const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-  .toISOString()
-  .replace(" ", "T")
-  .replace(".000Z", "Z");
-let apiFrom = oneWeekAgo;
-let apiTo = formattedDateTime;
-let apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-// To make date into api format
-function getFullDateForYear(year) {
-  const formattedDate = new Date(year, 0, 1, 0, 0, 0)
-    .toISOString()
-    .replace(" ", "T")
-    .replace(".000Z", "Z");
-  return formattedDate;
+// FreshShresh News — UI controller
+//
+// Keeps the original Bootstrap accordion layout and the original controls
+// (country tabs, category / language / country / date dropdowns, search).
+// Data now comes from Js/feed.js, which needs no API key.
+
+const state = {
+  country: "in",
+  language: "en",
+  category: "general",
+  query: "",
+  fromYear: null,
+};
+
+const accordionNews = document.getElementById("accordionNews");
+const categoryButton = document.getElementById("categoryButton");
+const languageButton = document.getElementById("languageButton");
+const countryButton = document.getElementById("countryButton");
+const fromButton = document.getElementById("fromButton");
+const newsSearch = document.getElementById("newsSearch");
+const submit = document.getElementById("submit");
+const currentDate = document.getElementById("currentDate");
+
+const LOADING = `<div class="d-flex justify-content-center py-5">
+  <div class="spinner-border" role="status">
+    <span class="visually-hidden">Loading...</span>
+  </div>
+</div>`;
+
+const EMPTY = `<div class="alert alert-warning my-4" role="alert">
+  <strong>No stories found.</strong> Try another category, country or search word.
+</div>`;
+
+const ERROR = (message) => `<div class="alert alert-danger my-4" role="alert">
+  <strong>Could not load the news feed.</strong> ${message}
+  <div class="mt-2"><button class="btn btn-sm btn-outline-danger" id="retryFeed">Try again</button></div>
+</div>`;
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
-function getFullDateForYear2(year) {
-  const formattedDate = new Date(year, 11, 31, 0, 0, 0)
-    .toISOString()
-    .replace(" ", "T")
-    .replace(".000Z", "Z");
-  return formattedDate;
+
+function formatDate(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  return d.toLocaleString(undefined, {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
-// Grabbing the News Container
-accordionNews = document.getElementById("accordionNews");
-function toLoadNews(apiUrl) {
-  // Clear the accordion and put a loading Screen
-  accordionNews.innerHTML = `<div class="d-flex justify-content-center">
-                               <div class="spinner-border" role="status">
-                                   <span class="visually-hidden">Loading...</span>
-                                   <div class="spinner-grow text-secondary" role="status">
-                                         <span class="visually-hidden">Loading...</span>
-                                   </div>
-                               </div>
-                             </div>`;
-  // Create a GET request
-  const xhr = new XMLHttpRequest();
-  xhr.open("GET", `${apiUrl}`, true);
-  // What to do when response is ready
-  xhr.onload = function () {
-    if (this.status === 200) {
-      let json = JSON.parse(this.responseText);
-      let articles = json.articles;
-      console.log(articles);
-      if (articles.length === 0) {
-        if (accordionNews.innerHTML == "") {
-          blanknewsHtml = `<div class="offcanvas offcanvas-start show" tabindex="-1" id="offcanvas" aria-labelledby="offcanvasLabel">
-                    <div class="offcanvas-header">
-                      <h5 class="offcanvas-title" id="offcanvasLabel">Oops !! Sorry </h5>
-                      <button type="button" class="btn-close" id="buttonClose" data-bs-dismiss="offcanvas" aria-label="Close"></button>
-                    </div>
-                    <div class="offcanvas-body">
-                      No news related to the query found. Please try other News Source or Word. !!!
-                    </div>
-                  </div>`;
-          accordionNews.innerHTML = blanknewsHtml;
-          buttonClose.addEventListener("click", function () {
-            accordionNews.innerHTML = "";
-          });
-        }
-      } else {
-        let newsHtml = ``;
-        articles.forEach(function (element, index) {
-          // console.log(element);
-          if (element.title === null) {
-            element.title = "No Title Available";
-          }
-          if (element.description === null) {
-            element.description = "No Description Available";
-          }
-          if (element.content === null) {
-            element.content = "No Description Available";
-          }
-          let news, newsAnother;
-          if (index == 0) {
-            accordionNews.innerHTML = "";
-            news = `
-                            <div class="accordion-item">
-                            <img src="${
-                              element.image
-                            }" class="card-img-top" alt="Image of ${
-              element.title
-            }">
-                                <h2 class="accordion-header" id="heading${index}">
-                                    <button class="accordion-button" type="button" data-bs-toggle="collapse"
-                                        data-bs-target="#collapse${index}" aria-expanded="true" aria-controls="collapse${index}">
-                                       <b> Breaking News : ${
-                                         index + 1
-                                       } -></b> ${element.title}
-                                    </button>
-                                </h2>
-                                <div id="collapse${index}" class="accordion-collapse collapse show" aria-labelledby="heading${index}"
-                                    data-bs-parent="#accordionNews">
-                                    <div class="accordion-body">
-                                    Description: ${element.description} ||
-                                    </div>
-                                    <div class="accordion-body">
-                                    Content: ${element.content} ||  <a href='${
-              element.url
-            }' target="_blank"><code>Read More Here</code></a> || 
-                                    <strong> Source : ${
-                                      element.source.name
-                                    } || </strong>
-                                    <strong> Published At : ${
-                                      element.publishedAt
-                                    }</strong></div>
-                                </div>
-                            </div>`;
-            newsAnother = ``;
-          } else {
-            news = ``;
-            newsAnother = `
-                            <div class="accordion-item">
-                            <img src="${
-                              element.image
-                            }" class="card-img-top" alt="Image of ${
-              element.title
-            }">
-                                <h2 class="accordion-header" id="heading${index}">
-                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
-                                        data-bs-target="#collapse${index}" aria-expanded="false" aria-controls="collapse${index}">
-                                        <b> Breaking News : ${
-                                          index + 1
-                                        } -></b>  ${element.title}
-                                    </button>
-                                </h2>
-                                <div id="collapse${index}" class="accordion-collapse collapse" aria-labelledby="heading${index}"
-                                data-bs-parent="#accordionNews">
-                                <div class="accordion-body">
-                                Description: ${element.description} ||
-                                </div>
-                                <div class="accordion-body">
-                                Content: ${element.content} ||  <a href='${
-              element.url
-            }' target="_blank"><code>Read More Here</code></a> || 
-                                    <strong>Source : ${
-                                      element.source.name
-                                    } || </strong>
-                                    <strong>Published At : ${
-                                      element.publishedAt
-                                    }</strong></div>
-                                </div>
-                            </div>`;
-          }
-          newsHtml += news + newsAnother;
-        });
-        accordionNews.innerHTML = newsHtml;
-      }
-    } else {
-      console.error("Some error Occured!");
+
+function articleHtml(article, index) {
+  const open = index === 0;
+  const image = article.image
+    ? `<img src="${escapeHtml(article.image)}" class="card-img-top" alt="" loading="lazy"
+            onerror="this.style.display='none'">`
+    : "";
+  const published = formatDate(article.publishedAt);
+
+  return `
+    <div class="accordion-item">
+      ${image}
+      <h2 class="accordion-header" id="heading${index}">
+        <button class="accordion-button ${open ? "" : "collapsed"}" type="button"
+                data-bs-toggle="collapse" data-bs-target="#collapse${index}"
+                aria-expanded="${open}" aria-controls="collapse${index}">
+          <b>Breaking News : ${index + 1} -&gt;</b>&nbsp;${escapeHtml(article.title)}
+        </button>
+      </h2>
+      <div id="collapse${index}" class="accordion-collapse collapse ${open ? "show" : ""}"
+           aria-labelledby="heading${index}" data-bs-parent="#accordionNews">
+        <div class="accordion-body">
+          ${escapeHtml(article.description)}
+          <div class="mt-2">
+            <a href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">
+              <code>Read More Here</code>
+            </a>
+            <strong class="ms-2">Source : ${escapeHtml(article.source.name)}</strong>
+            ${published ? `<strong class="ms-2">Published At : ${escapeHtml(published)}</strong>` : ""}
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+async function loadNews() {
+  accordionNews.innerHTML = LOADING;
+  try {
+    const articles = await window.FreshShresh.fetchFeed({
+      country: state.country,
+      language: state.language,
+      category: state.category,
+      query: state.query,
+    });
+
+    if (!articles.length) {
+      accordionNews.innerHTML = EMPTY;
+      return;
     }
+
+    accordionNews.innerHTML = articles.map(articleHtml).join("");
+  } catch (err) {
+    accordionNews.innerHTML = ERROR(escapeHtml(err.message));
+    const retry = document.getElementById("retryFeed");
+    if (retry) retry.addEventListener("click", loadNews);
+  }
+}
+
+// --------------------------------------------------------------------------
+// Country tabs
+// --------------------------------------------------------------------------
+const TABS = [
+  ["Home", "in"],
+  ["IN2", "in"],
+  ["US2", "us"],
+  ["AU2", "au"],
+  ["NL2", "nl"],
+  ["CH2", "ch"],
+];
+
+function setActiveTab(id) {
+  TABS.forEach(([tabId]) => {
+    const el = document.getElementById(tabId);
+    if (el) el.classList.remove("active");
+  });
+  const el = document.getElementById(id);
+  if (el) el.classList.add("active");
+}
+
+TABS.forEach(([tabId, country]) => {
+  const el = document.getElementById(tabId);
+  if (!el) return;
+  el.addEventListener("click", () => {
+    state.country = country;
+    state.query = "";
+    setActiveTab(tabId);
+    countryButton.innerText = "Choose Specific Country";
+    loadNews();
+  });
+});
+
+// Language tabs
+[["HI2", "hi"], ["EN2", "en"]].forEach(([tabId, language]) => {
+  const el = document.getElementById(tabId);
+  if (!el) return;
+  el.addEventListener("click", () => {
+    state.language = language;
+    state.query = "";
+    setActiveTab(tabId);
+    languageButton.innerText = "Choose Specific Language";
+    loadNews();
+  });
+});
+
+// --------------------------------------------------------------------------
+// Dropdowns
+// --------------------------------------------------------------------------
+document.querySelectorAll("li > a.category-item").forEach((item) => {
+  item.addEventListener("click", (event) => {
+    categoryButton.innerText = event.target.innerText;
+    state.category = event.target.id.toLowerCase();
+    state.query = "";
+    loadNews();
+  });
+});
+
+document.querySelectorAll("li > a.language-item").forEach((item) => {
+  item.addEventListener("click", (event) => {
+    languageButton.innerText = event.target.innerText;
+    state.language = event.target.id.toLowerCase().replace(/\d+$/, "");
+    state.query = "";
+    loadNews();
+  });
+});
+
+document.querySelectorAll("li > a.country-item").forEach((item) => {
+  item.addEventListener("click", (event) => {
+    countryButton.innerText = event.target.innerText;
+    state.country = event.target.id.toLowerCase();
+    state.query = "";
+    loadNews();
+  });
+});
+
+document.querySelectorAll("li > a.from-item").forEach((item) => {
+  item.addEventListener("click", (event) => {
+    fromButton.innerText = event.target.innerText;
+    state.fromYear = parseInt(event.target.id, 10);
+    // Google News RSS has no date range; the label is kept for parity with the
+    // original UI and the newest stories are shown.
+    loadNews();
+  });
+});
+
+// --------------------------------------------------------------------------
+// Search
+// --------------------------------------------------------------------------
+if (submit) {
+  submit.addEventListener("click", (event) => {
+    event.preventDefault();
+    state.query = (newsSearch.value || "").trim();
+    loadNews();
+  });
+}
+
+if (newsSearch) {
+  newsSearch.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      state.query = (newsSearch.value || "").trim();
+      loadNews();
+    }
+  });
+}
+
+// --------------------------------------------------------------------------
+// Clock
+// --------------------------------------------------------------------------
+if (currentDate) {
+  const tick = () => {
+    currentDate.innerText = new Date().toLocaleDateString(undefined, {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   };
-  xhr.send();
-  // console.log(apiCountry);
-  // console.log(apiLanguage);
-  // console.log(apiCategory);
-  console.log(apiUrl);
+  tick();
+  setInterval(tick, 60_000);
 }
 
-IN2.addEventListener("click", function changeCountry() {
-  apiCountry = "in";
-  US2.classList.remove("active");
-  AU2.classList.remove("active");
-  NL2.classList.remove("active");
-  CH2.classList.remove("active");
-  HI2.classList.remove("active");
-  EN2.classList.remove("active");
-  Home.classList.add("active");
-  IN2.classList.add("active");
-  countryButton.innerText = "Choose Specific Country";
-  apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-  toLoadNews(apiUrl);
-});
-US2.addEventListener("click", function changeCountry() {
-  apiCountry = "us";
-  Home.classList.remove("active");
-  IN2.classList.remove("active");
-  AU2.classList.remove("active");
-  NL2.classList.remove("active");
-  CH2.classList.remove("active");
-  HI2.classList.remove("active");
-  EN2.classList.remove("active");
-  US2.classList.add("active");
-  countryButton.innerText = "Choose Specific Country";
-  apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-  toLoadNews(apiUrl);
-});
-AU2.addEventListener("click", function changeCountry() {
-  apiCountry = "au";
-  Home.classList.remove("active");
-  IN2.classList.remove("active");
-  US2.classList.remove("active");
-  NL2.classList.remove("active");
-  CH2.classList.remove("active");
-  HI2.classList.remove("active");
-  EN2.classList.remove("active");
-  AU2.classList.add("active");
-  countryButton.innerText = "Choose Specific Country";
-  apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-  toLoadNews(apiUrl);
-});
-NL2.addEventListener("click", function changeCountry() {
-  apiCountry = "nl";
-  Home.classList.remove("active");
-  IN2.classList.remove("active");
-  US2.classList.remove("active");
-  AU2.classList.remove("active");
-  CH2.classList.remove("active");
-  HI2.classList.remove("active");
-  EN2.classList.remove("active");
-  NL2.classList.add("active");
-  countryButton.innerText = "Choose Specific Country";
-  apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-  toLoadNews(apiUrl);
-});
-CH2.addEventListener("click", function changeCountry() {
-  apiCountry = "ch";
-  Home.classList.remove("active");
-  IN2.classList.remove("active");
-  US2.classList.remove("active");
-  AU2.classList.remove("active");
-  NL2.classList.remove("active");
-  HI2.classList.remove("active");
-  EN2.classList.remove("active");
-  CH2.classList.add("active");
-  countryButton.innerText = "Choose Specific Country";
-  apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-  toLoadNews(apiUrl);
-});
-HI2.addEventListener("click", function changeCountry() {
-  apiLanguage = "hi";
-  Home.classList.remove("active");
-  IN2.classList.remove("active");
-  US2.classList.remove("active");
-  AU2.classList.remove("active");
-  NL2.classList.remove("active");
-  CH2.classList.remove("active");
-  EN2.classList.remove("active");
-  HI2.classList.add("active");
-  languageButton.innerText = "Choose Specific Language";
-  apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-  toLoadNews(apiUrl);
-});
-EN2.addEventListener("click", function changeCountry() {
-  apiSource = "en";
-  Home.classList.remove("active");
-  IN2.classList.remove("active");
-  US2.classList.remove("active");
-  AU2.classList.remove("active");
-  NL2.classList.remove("active");
-  CH2.classList.remove("active");
-  HI2.classList.remove("active");
-  EN2.classList.add("active");
-  languageButton.innerText = "Choose Specific Language";
-  apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-  toLoadNews(apiUrl);
-});
-currentDate.addEventListener("click", function changeCountry() {
-  fromButton.innerText = "Within a Week";
-  apiFrom = oneWeekAgo;
-  apiTo = formattedDateTime;
-  apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-  toLoadNews(apiUrl);
-});
-country_dropdowns = document.querySelectorAll("li > a.country-item");
-// console.log(country_dropdowns);
-for (country_dropdown of country_dropdowns) {
-  country_dropdown.addEventListener("click", (e) => {
-    countryButton.innerText = e.target.innerText;
-    apiCountry = e.target.id;
-    apiCountry = apiCountry.toLowerCase();
-    apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-    toLoadNews(apiUrl);
-  });
-}
-category_dropdowns = document.querySelectorAll("li > a.category-item");
-// console.log(category_dropdowns);
-for (category_dropdown of category_dropdowns) {
-  category_dropdown.addEventListener("click", (e) => {
-    categoryButton.innerText = e.target.innerText;
-    apiCategory = e.target.id;
-    apiCategory = apiCategory.toLowerCase();
-    apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-    toLoadNews(apiUrl);
-  });
-}
-language_dropdowns = document.querySelectorAll("li > a.language-item");
-// console.log(language_dropdowns);
-for (language_dropdown of language_dropdowns) {
-  language_dropdown.addEventListener("click", (e) => {
-    languageButton.innerText = e.target.innerText;
-    apiLanguage = e.target.id;
-    apiLanguage = apiLanguage.toLowerCase();
-    apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-    toLoadNews(apiUrl);
-  });
-}
-from_dropdowns = document.querySelectorAll("li > a.from-item");
-// console.log(from_dropdowns);
-for (from_dropdown of from_dropdowns) {
-  from_dropdown.addEventListener("click", (e) => {
-    fromButton.innerText = e.target.innerText;
-    year = parseInt(e.target.id);
-    let fullDate = getFullDateForYear(year);
-    apiFrom = fullDate;
-    fullDate = getFullDateForYear2(year);
-    apiTo = fullDate;
-    apiUrl = `https://gnews.io/api/v4/top-headlines?country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-    toLoadNews(apiUrl);
-  });
-}
-
-submit.addEventListener("click", function (e) {
-  e.preventDefault();
-  let inputVal = newsSearch.value.toLowerCase();
-  // console.log(inputVal);
-  apiQuery = inputVal;
-  apiUrl = `https://gnews.io/api/v4/search?q=${apiQuery}&country=${apiCountry}&lang=${apiLanguage}&from=${apiFrom}&to=${apiTo}&category=${apiCategory}&apikey=${apiKey}`;
-  toLoadNews(apiUrl);
-});
-
-toLoadNews(apiUrl);
-// To do's
-// 1. Ask User which country news they want to see & show them to specific country news
-// 2. Ask User which news channel they want to see & show them to specific news from the channel
-// 3. Search News by Queries *
-// And Many More
+loadNews();
