@@ -1,13 +1,18 @@
 // FreshShresh News — data layer
 //
-// Headlines come from Google News RSS via our own serverless proxy
-// (/api/news), which converts the feed to JSON server-side. No API key is
-// needed and there is no CORS problem because the browser only talks to our
-// own origin.
+// Headlines come from Google News RSS via a serverless proxy that converts
+// the feed to JSON. No API key is needed. The proxy runs on Vercel because
+// Firebase Hosting is static-only and Cloud Functions requires the Blaze
+// plan; it sends `access-control-allow-origin: *`, so any host can call it.
 //
 // The previous build used gnews.io with a hardcoded key that had expired, so
 // every request failed. This module keeps the same article shape the UI
 // expects (title, description, content, url, image, source, publishedAt).
+
+// Override with window.FRESHSHRESH_API if the API moves.
+const NEWS_API =
+  (typeof window !== "undefined" && window.FRESHSHRESH_API) ||
+  "https://freshshreshnews.vercel.app/api/news";
 
 function stripHtml(value) {
   if (!value) return "";
@@ -29,7 +34,10 @@ async function fetchFeed({ country, language, category, query }) {
   });
   if (query) params.set("q", query);
 
-  const res = await fetch(`/api/news?${params.toString()}`);
+  // The news API lives on Vercel (Firebase Hosting is static-only and Cloud
+  // Functions needs the Blaze plan). The endpoint sends
+  // `access-control-allow-origin: *`, so the browser can call it from any host.
+  const res = await fetch(`${NEWS_API}?${params.toString()}`);
   if (!res.ok) {
     let detail = `Feed request failed (${res.status})`;
     try {
