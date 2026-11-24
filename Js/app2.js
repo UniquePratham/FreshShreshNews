@@ -147,7 +147,12 @@ async function loadNews() {
       return;
     }
 
-    accordionNews.innerHTML = articles.map(articleHtml).join("");
+    // A card with no photo leaves an empty slot, so when most articles are
+    // illustrated the rest are dropped rather than shown half-empty.
+    const illustrated = articles.filter((a) => a.image && a.imageKind === "photo");
+    const shown = illustrated.length >= 6 ? illustrated : articles;
+
+    accordionNews.innerHTML = shown.map(articleHtml).join("");
   } catch (err) {
     accordionNews.innerHTML = ERROR(escapeHtml(err.message));
     const retry = document.getElementById("retryFeed");

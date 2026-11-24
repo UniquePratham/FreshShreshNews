@@ -53,12 +53,23 @@ async function fetchFeed({ country, language, category, query, year }) {
   const data = await res.json();
   const items = Array.isArray(data.items) ? data.items : [];
 
+  // Historical photos come back as a path on the API host (the proxy), so they
+  // have to be resolved against it rather than the page origin.
+  const apiOrigin = new URL(NEWS_API, window.location.href).origin;
+  const resolveImage = (value) => {
+    const raw = String(value || "");
+    if (!raw) return "";
+    if (/^https?:\/\//i.test(raw)) return raw;
+    if (raw.startsWith("/")) return `${apiOrigin}${raw}`;
+    return raw;
+  };
+
   return items.map((item) => ({
     title: stripHtml(item.title) || "No title available",
     description: stripHtml(item.description) || "No description available.",
     content: stripHtml(item.content) || "No description available.",
     url: item.url || "#",
-    image: item.image || "",
+    image: resolveImage(item.image),
     imageKind: item.imageKind === "logo" ? "logo" : "photo",
     source: { name: (item.source && item.source.name) || "Google News" },
     publishedAt: item.publishedAt || "",

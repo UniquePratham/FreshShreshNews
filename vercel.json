@@ -2,10 +2,20 @@
   "version": 2,
   "builds": [
     { "src": "api/news.js", "use": "@vercel/node" },
+    { "src": "api/image.js", "use": "@vercel/node" },
     { "src": "**/*", "use": "@vercel/static" }
   ],
   "routes": [
     { "src": "/api/news", "dest": "/api/news.js" },
+    { "src": "/api/image", "dest": "/api/image.js" },
     { "src": "/(.*)", "dest": "/$1" }
+  ],
+  "headers": [
+    {
+      "source": "/api/image",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=604800, s-maxage=604800, immutable" }
+      ]
+    }
   ]
 }

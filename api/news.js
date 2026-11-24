@@ -519,11 +519,122 @@ function finalize(items, query) {
 }
 
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Historical images
+//
+// Google News search is the only free archive that reaches back to 2020, but it
+// ships no images at all — its links are news.google.com redirects whose
+// og:image is one generic Google placeholder for every article. GDELT does
+// carry a real image URL, but it allows roughly one request every five seconds
+// and blocks an IP that exceeds it, so it cannot be relied on per page load.
+// The reliable route is Bing image search keyed on the exact headline. Each
+// result carries the image URL, the page it came from and its own title, so an
+// image is only accepted when that title closely matches the headline. That
+// keeps a wrong photo out of the card, which matters more than coverage.
+// ---------------------------------------------------------------------------
+const IMAGE_MATCH_THRESHOLD = 0.6;
+const IMAGE_LOOKUP_LIMIT = 24;
+const IMAGE_LOOKUP_CONCURRENCY = 12;
+const IMAGE_LOOKUP_TIMEOUT_MS = 5000;
+
+const STOPWORDS = new Set([
+  "the", "a", "an", "of", "in", "on", "to", "for", "and", "at", "by", "is",
+  "are", "as", "with", "from", "after", "over", "new", "says", "said", "will",
+  "be", "its", "it", "this", "that", "has", "have", "was", "were", "not",
+  "but", "or", "up", "out", "into", "amid", "than", "more", "most", "can",
+  "may", "how", "why", "what", "who", "when", "where",
+]);
+
+function significantTokens(value) {
+  return new Set(
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, " ")
+      .split(" ")
+      .filter((w) => w.length > 2 && !STOPWORDS.has(w))
+  );
+}
+
+function jaccard(a, b) {
+  if (!a.size || !b.size) return 0;
+  let shared = 0;
+  for (const t of a) if (b.has(t)) shared += 1;
+  return shared / (a.size + b.size - shared);
+}
+
+async function imageForHeadline(title) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), IMAGE_LOOKUP_TIMEOUT_MS);
+  try {
+    const res = await fetch(
+      `https://www.bing.com/images/search?q=${encodeURIComponent(title)}&form=HDRSC2&first=1`,
+      {
+        headers: { "User-Agent": UA, Accept: "text/html,application/xhtml+xml" },
+        signal: controller.signal,
+      }
+    );
+    if (!res.ok) return "";
+    const html = await res.text();
+
+    const wanted = significantTokens(title);
+    let best = null;
+    for (const m of html.matchAll(/class="iusc"[^>]*m="([^"]+)"/g)) {
+      let meta;
+      try {
+        meta = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, "&"));
+      } catch {
+        continue;
+      }
+      if (!meta.murl || !meta.t) continue;
+      const score = jaccard(wanted, significantTokens(meta.t));
+      if (!best || score > best.score) best = { score, url: meta.murl };
+    }
+    return best && best.score >= IMAGE_MATCH_THRESHOLD ? best.url : "";
+  } catch {
+    return "";
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// Resolve images for a batch of articles, bounded so a page load stays fast.
+async function attachImages(items) {
+  const targets = items.slice(0, IMAGE_LOOKUP_LIMIT);
+  const queue = [...targets];
+  const found = new Map();
+
+  async function worker() {
+    while (queue.length) {
+      const item = queue.shift();
+      const url = await imageForHeadline(item.title);
+      if (url) found.set(item, url);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(IMAGE_LOOKUP_CONCURRENCY, targets.length) }, worker)
+  );
+
+  return items.map((item) => {
+    const url = found.get(item);
+    if (!url) return item;
+    // Several publisher CDNs send Cross-Origin-Resource-Policy: same-origin, so
+    // the browser refuses to render their image on our domain. Route it through
+    // the proxy so the bytes are served from our own origin.
+    return {
+      ...item,
+      image: `/api/image?url=${encodeURIComponent(url)}`,
+      imageKind: "photo",
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Cache-Control", "s-maxage=300, stale-while-revalidate=600");
 
   const country = String(req.query.country || "in").toUpperCase();
   const language = String(req.query.language || "en").toLowerCase();
@@ -535,6 +646,15 @@ export default async function handler(req, res) {
     Number.isFinite(yearParam) && yearParam >= 2020 && yearParam <= currentYear
       ? yearParam
       : null;
+
+  // Historical news never changes, so a past year is cached for a day. Live
+  // headlines move, so they keep the short window.
+  res.setHeader(
+    "Cache-Control",
+    year && year < currentYear
+      ? "s-maxage=86400, stale-while-revalidate=604800"
+      : "s-maxage=300, stale-while-revalidate=600"
+  );
 
   const gl = country.toLowerCase();
   const cat = category.toLowerCase();
@@ -548,13 +668,27 @@ export default async function handler(req, res) {
         { retries: 2 }
       );
       if (!xml) return res.status(502).json({ error: "Upstream news search failed" });
+
       // Google's range is inclusive at the edges and a few items leak into the
       // next year, so pin the result to the year the user asked for.
       const items = finalize(parseGoogleNews(xml), query).filter((item) => {
         const d = new Date(item.publishedAt);
         return !Number.isNaN(d.getTime()) && d.getFullYear() === year;
       });
-      return res.status(200).json({ count: items.length, year, items });
+
+      // Google News carries no images, so look each headline up and swap the
+      // publisher logo for a real photo where one can be matched confidently.
+      const illustrated = await attachImages(items);
+      const withPhoto = illustrated.filter((i) => i.imageKind === "photo" && i.image);
+      const result = withPhoto.length >= MIN_PHOTO_ITEMS ? withPhoto : illustrated;
+
+      return res.status(200).json({
+        count: result.length,
+        year,
+        source: "google",
+        illustrated: withPhoto.length,
+        items: result,
+      });
     }
 
     // Live path: publisher feeds that carry real photos.
