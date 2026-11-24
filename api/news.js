@@ -525,7 +525,12 @@ export default async function handler(req, res) {
         { retries: 2 }
       );
       if (!xml) return res.status(502).json({ error: "Upstream news search failed" });
-      const items = finalize(parseGoogleNews(xml), query);
+      // Google's range is inclusive at the edges and a few items leak into the
+      // next year, so pin the result to the year the user asked for.
+      const items = finalize(parseGoogleNews(xml), query).filter((item) => {
+        const d = new Date(item.publishedAt);
+        return !Number.isNaN(d.getTime()) && d.getFullYear() === year;
+      });
       return res.status(200).json({ count: items.length, year, items });
     }
 
