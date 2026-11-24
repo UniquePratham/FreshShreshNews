@@ -73,19 +73,20 @@ function articleHtml(article, index) {
         <button class="accordion-button ${open ? "" : "collapsed"}" type="button"
                 data-bs-toggle="collapse" data-bs-target="#collapse${index}"
                 aria-expanded="${open}" aria-controls="collapse${index}">
-          <b>Breaking News : ${index + 1} -&gt;</b>&nbsp;${escapeHtml(article.title)}
+          <b>${index + 1}.</b>
+          <span>${escapeHtml(article.title)}</span>
         </button>
       </h2>
       <div id="collapse${index}" class="accordion-collapse collapse ${open ? "show" : ""}"
            aria-labelledby="heading${index}" data-bs-parent="#accordionNews">
         <div class="accordion-body">
-          ${escapeHtml(article.description)}
-          <div class="mt-2">
+          <p class="mb-3">${escapeHtml(article.description)}</p>
+          <div class="d-flex flex-wrap align-items-center gap-3">
             <a href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">
-              <code>Read More Here</code>
+              <code>Read the full story</code>
             </a>
-            <strong class="ms-2">Source : ${escapeHtml(article.source.name)}</strong>
-            ${published ? `<strong class="ms-2">Published At : ${escapeHtml(published)}</strong>` : ""}
+            <strong>Source: ${escapeHtml(article.source.name)}</strong>
+            ${published ? `<strong>${escapeHtml(published)}</strong>` : ""}
           </div>
         </div>
       </div>
