@@ -26,13 +26,14 @@ function stripHtml(value) {
     .trim();
 }
 
-async function fetchFeed({ country, language, category, query }) {
+async function fetchFeed({ country, language, category, query, year }) {
   const params = new URLSearchParams({
     country: country || "in",
     language: language || "en",
     category: category || "general",
   });
   if (query) params.set("q", query);
+  if (year) params.set("year", String(year));
 
   // The news API lives on Vercel (Firebase Hosting is static-only and Cloud
   // Functions needs the Blaze plan). The endpoint sends
@@ -58,6 +59,7 @@ async function fetchFeed({ country, language, category, query }) {
     content: stripHtml(item.content) || "No description available.",
     url: item.url || "#",
     image: item.image || "",
+    imageKind: item.imageKind === "logo" ? "logo" : "photo",
     source: { name: (item.source && item.source.name) || "Google News" },
     publishedAt: item.publishedAt || "",
   }));
