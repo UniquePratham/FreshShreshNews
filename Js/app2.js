@@ -60,15 +60,16 @@ function formatDate(value) {
 
 function articleHtml(article, index) {
   const open = index === 0;
-  const image = article.image
-    ? `<img src="${escapeHtml(article.image)}" class="card-img-top" alt="" loading="lazy"
-            onerror="this.style.display='none'">`
-    : "";
   const published = formatDate(article.publishedAt);
+  const image = article.image
+    ? `<div class="news-media">
+         <img src="${escapeHtml(article.image)}" alt="" loading="lazy"
+              onerror="this.closest(' .news-media').classList.add('is-empty')">
+       </div>`
+    : `<div class="news-media is-empty"><span>No image</span></div>`;
 
   return `
     <div class="accordion-item">
-      ${image}
       <h2 class="accordion-header" id="heading${index}">
         <button class="accordion-button ${open ? "" : "collapsed"}" type="button"
                 data-bs-toggle="collapse" data-bs-target="#collapse${index}"
@@ -79,15 +80,18 @@ function articleHtml(article, index) {
       </h2>
       <div id="collapse${index}" class="accordion-collapse collapse ${open ? "show" : ""}"
            aria-labelledby="heading${index}" data-bs-parent="#accordionNews">
-        <div class="accordion-body">
-          <p class="mb-3">${escapeHtml(article.description)}</p>
-          <div class="d-flex flex-wrap align-items-center gap-3">
-            <a href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">
-              <code>Read the full story</code>
-            </a>
-            <strong>Source: ${escapeHtml(article.source.name)}</strong>
-            ${published ? `<strong>${escapeHtml(published)}</strong>` : ""}
+        <div class="accordion-body news-split">
+          <div class="news-text">
+            <p class="news-summary">${escapeHtml(article.description)}</p>
+            <div class="news-meta">
+              <a href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">
+                <code>Read the full story</code>
+              </a>
+              <strong>Source: ${escapeHtml(article.source.name)}</strong>
+              ${published ? `<strong>${escapeHtml(published)}</strong>` : ""}
+            </div>
           </div>
+          ${image}
         </div>
       </div>
     </div>`;
@@ -96,23 +100,32 @@ function articleHtml(article, index) {
 async function loadNews() {
   accordionNews.innerHTML = LOADING;
   try {
-    const articles = await window.FreshShresh.fetchFeed({
+    let articles = await window.FreshShresh.fetchFeed({
       country: state.country,
       language: state.language,
       category: state.category,
       query: state.query,
     });
 
-    if (!articles.length) {
-      accordionNews.innerHTML = EMPTY;
-      return;
+    // Google News RSS has no date range, so the year filter is applied
+    // client-side against each article's published date.
+    if (state.fromYear) {
+      articles = articles.filter((a) => {
+        const d = new Date(a.publishedAt)
+        return !Number.isNaN(d.getTime()) && d.getFullYear() >= state.fromYear
+      })
     }
 
-    accordionNews.innerHTML = articles.map(articleHtml).join("");
+    if (!articles.length) {
+      accordionNews.innerHTML = EMPTY
+      return
+    }
+
+    accordionNews.innerHTML = articles.map(articleHtml).join("")
   } catch (err) {
-    accordionNews.innerHTML = ERROR(escapeHtml(err.message));
-    const retry = document.getElementById("retryFeed");
-    if (retry) retry.addEventListener("click", loadNews);
+    accordionNews.innerHTML = ERROR(escapeHtml(err.message))
+    const retry = document.getElementById("retryFeed")
+    if (retry) retry.addEventListener("click", loadNews)
   }
 }
 
@@ -194,10 +207,18 @@ document.querySelectorAll("li > a.country-item").forEach((item) => {
 
 document.querySelectorAll("li > a.from-item").forEach((item) => {
   item.addEventListener("click", (event) => {
+    const id = event.target.id;
     fromButton.innerText = event.target.innerText;
-    state.fromYear = parseInt(event.target.id, 10);
-    // Google News RSS has no date range; the label is kept for parity with the
-    // original UI and the newest stories are shown.
+
+    if (id === "all") {
+      state.fromYear = null;
+      fromButton.innerText = "Any date";
+    } else if (id === "week") {
+      state.fromYear = null;
+    } else {
+      state.fromYear = parseInt(id, 10) || null;
+    }
+
     loadNews();
   });
 });
@@ -238,5 +259,27 @@ if (currentDate) {
   tick();
   setInterval(tick, 60_000);
 }
+
+// Clear-filter entries reset their own dimension and reload.
+document.querySelectorAll("a.clear-filter").forEach((item) => {
+  item.addEventListener("click", (event) => {
+    const kind = event.target.className
+    if (kind.includes("category-item")) {
+      state.category = "general"
+      categoryButton.innerText = "Choose Specific Category"
+    } else if (kind.includes("language-item")) {
+      state.language = "en"
+      languageButton.innerText = "Choose Specific Language"
+    } else if (kind.includes("country-item")) {
+      state.country = "in"
+      countryButton.innerText = "Choose Specific Country"
+    } else if (kind.includes("from-item")) {
+      state.fromYear = null
+      fromButton.innerText = "Any date"
+    }
+    loadNews()
+  })
+})
+
 
 loadNews();
