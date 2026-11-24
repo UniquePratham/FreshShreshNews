@@ -89,6 +89,19 @@ function articleHtml(article, index) {
   const open = index === 0;
   const published = formatDate(article.publishedAt);
 
+  // Publisher feeds often repeat the headline as the description. Showing it
+  // twice is noise, so the duplicate is dropped. A prefix match catches the
+  // common "headline + extra clause" shape too.
+  const norm = (s) => String(s || "").replace(/\s+/g, " ").trim().toLowerCase();
+  const summary = norm(article.description);
+  const title = norm(article.title);
+  const isDuplicate =
+    !summary ||
+    summary === title ||
+    summary.startsWith(title) ||
+    title.startsWith(summary) ||
+    summary.replace(/[^a-z0-9]/g, "") === title.replace(/[^a-z0-9]/g, "");
+
   return `
     <div class="accordion-item">
       <h2 class="accordion-header" id="heading${index}">
@@ -101,9 +114,9 @@ function articleHtml(article, index) {
       </h2>
       <div id="collapse${index}" class="accordion-collapse collapse ${open ? "show" : ""}"
            aria-labelledby="heading${index}" data-bs-parent="#accordionNews">
-        <div class="accordion-body news-split">
+        <div class="accordion-body news-split${isDuplicate ? " is-compact" : ""}">
           <div class="news-text">
-            <p class="news-summary">${escapeHtml(article.description)}</p>
+            <p class="news-summary${isDuplicate ? " is-duplicate" : ""}">${escapeHtml(summary)}</p>
             <div class="news-meta">
               <a class="read-more" href="${escapeHtml(article.url)}" target="_blank" rel="noopener noreferrer">
                 <code>Read the full story</code>

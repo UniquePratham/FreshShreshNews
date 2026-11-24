@@ -25,6 +25,8 @@ const PER_FEED = 12;
 // Below this many illustrated articles, keep the unillustrated ones too rather
 // than returning a near-empty page.
 const MIN_PHOTO_ITEMS = 6;
+// Same rule for articles whose body is more than a repeated headline.
+const MIN_SUMMARY_ITEMS = 6;
 
 // ---------------------------------------------------------------------------
 // Publisher feed registry
@@ -336,6 +338,17 @@ function dedupeKey(title) {
   return String(title || "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 90);
 }
 
+// Many feeds repeat the headline as the description. A card whose body is just
+// the headline again reads as broken, so those are treated as having no summary.
+function hasRealSummary(item) {
+  const norm = (s) => String(s || "").replace(/[^a-z0-9]+/gi, "").toLowerCase();
+  const title = norm(item.title);
+  const summary = norm(item.description);
+  if (!summary || summary === title) return false;
+  if (summary.startsWith(title) || title.startsWith(summary)) return false;
+  return summary.length > 40;
+}
+
 // ---------------------------------------------------------------------------
 // Fetching
 // ---------------------------------------------------------------------------
@@ -378,13 +391,17 @@ function parseFeed(xml, feed) {
     if (!title) continue;
 
     const link = pick(block, "link") || pick(block, "guid");
+    // Some feeds put the real standfirst in content:encoded and only repeat the
+    // headline in description, so take whichever is longer.
     const description = stripTags(pick(block, "description"));
+    const encoded = stripTags(pick(block, "content:encoded"));
+    const summary = encoded.length > description.length ? encoded : description;
     const publishedAt = pick(block, "pubDate") || pick(block, "dc:date");
 
     items.push({
       title,
-      description: description || "No description available.",
-      content: description || "No description available.",
+      description: summary || "No description available.",
+      content: summary || "No description available.",
       url: absoluteUrl(link, feed.u) || "#",
       image: extractImage(block, feed.u),
       imageKind: "photo",
@@ -490,9 +507,15 @@ function finalize(items, query) {
   // A feed where half the cards show "No photo" looks broken. When enough
   // articles carry a real photo, drop the rest so every card is illustrated.
   const withPhoto = out.filter((i) => i.image && i.imageKind === "photo");
-  if (withPhoto.length >= MIN_PHOTO_ITEMS) return withPhoto;
+  let result = withPhoto.length >= MIN_PHOTO_ITEMS ? withPhoto : out;
 
-  return out;
+  // Likewise, a card whose body just repeats the headline reads as broken.
+  // Prefer articles that carry a real standfirst, keeping the rest only when
+  // too few qualify.
+  const withSummary = result.filter(hasRealSummary);
+  if (withSummary.length >= MIN_SUMMARY_ITEMS) result = withSummary;
+
+  return result;
 }
 
 // ---------------------------------------------------------------------------

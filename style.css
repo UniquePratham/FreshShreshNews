@@ -456,13 +456,17 @@ hr {
   }
 }
 /* --------------------------------------------------------------------------
-   Split news layout: text left, image right
+   Split news layout: text left, photo right
+   The photo is a full-bleed panel that fills the card height, so there is no
+   dead band beside a short summary. A fixed 260px image inside the body
+   padding left most of the row empty.
    -------------------------------------------------------------------------- */
 .news-split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 1.5rem;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 36%, 420px);
+  gap: 0;
+  padding: 0 !important;
+  align-items: stretch;
 }
 
 /* Without a photo the media column is dead space, so the text takes the row. */
@@ -474,15 +478,45 @@ hr {
   display: none;
 }
 
+/* The text sets the row height and the photo fills it, so neither column is
+   left with a band of whitespace. min-height keeps the photo large enough to
+   read as a hero image rather than a thumbnail. */
 .news-text {
   min-width: 0;
+  padding: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.9rem;
+}
+
+/* Only a card with a photo needs a minimum height — without one the text is
+   the whole card and should size to its content. */
+.news-split:has(.news-media:not(.is-empty)) .news-text {
+  min-height: 185px;
 }
 
 .news-summary {
-  margin: 0 0 0.9rem;
+  margin: 0;
   color: var(--ink-soft);
-  font-size: 0.94rem;
+  font-size: 0.98rem;
   line-height: 1.75;
+}
+
+/* Many publisher feeds repeat the headline as the description. Showing it
+   twice is noise, so the duplicate is dropped in the UI layer. */
+.news-summary.is-duplicate {
+  display: none;
+}
+
+/* With no real summary the card holds only a meta line, so the photo steps
+   down one size to keep the card from being mostly empty. */
+.news-split.is-compact {
+  grid-template-columns: minmax(0, 1fr) clamp(260px, 30%, 340px);
+}
+
+.news-split.is-compact .news-text {
+  min-height: 0;
 }
 
 .news-meta {
@@ -494,14 +528,13 @@ hr {
 
 .news-media {
   width: 100%;
-  aspect-ratio: 4 / 3;
-  border-radius: 10px;
+  height: 100%;
+  min-height: 190px;
   overflow: hidden;
   background: var(--surface-alt);
-  border: 1px solid var(--line);
+  border-left: 1px solid var(--line);
   display: grid;
   place-items: center;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .news-media img {
@@ -513,7 +546,7 @@ hr {
 }
 
 .accordion-item:hover .news-media img {
-  transform: scale(1.03);
+  transform: scale(1.04);
 }
 
 .news-media.is-empty {
@@ -549,14 +582,24 @@ hr {
   flex-shrink: 0;
 }
 
+@media (max-width: 991.98px) {
+  .news-split {
+    grid-template-columns: minmax(0, 1fr) clamp(240px, 36%, 340px);
+  }
+}
+
 @media (max-width: 767.98px) {
   .news-split {
     grid-template-columns: 1fr;
   }
 
   .news-media {
-    aspect-ratio: 16 / 9;
     order: -1;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    min-height: 0;
+    border-left: 0;
+    border-bottom: 1px solid var(--line);
   }
 }
 
